@@ -1,1 +1,227 @@
-# Youtube-dotti
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube どっち</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            position: relative;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+        }
+        h1 {
+            color: #333;
+        }
+        .title {
+            font-size: 50px;
+            margin: 20px 0;
+        }
+        input[type="url"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #5ecae6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background-color: #80cde0;
+        }
+        .results {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .video-info {
+            width: 45%;
+            text-align: center;
+        }
+        .video-name {
+            font-weight: bold;
+            font-size: 20px;
+            margin-top: 10px;
+        }
+        .stats {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+        .stats img {
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        .error {
+            color: red;
+            margin-top: 20px;
+        }
+        .thumbnail {
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="title">🎈 YouTube どっち 🎈</div>
+        <input type="url" id="youtubeLink1" placeholder="1つ目のYouTube動画のリンクを入力">
+        <input type="url" id="youtubeLink2" placeholder="2つ目のYouTube動画のリンクを入力">
+        <br>
+        <button class="button" onclick="compareVideos()">動画を比べる</button>
+        <div class="results" id="results"></div>
+        <div class="error" id="error"></div>
+    </div>
+
+    <script>
+        const apiKey = 'AIzaSyD54-iZ57_DhizSVJ2omDLp37C0ivPyJRI'; // APIキー
+
+        function getVideoId(url) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.searchParams.get("v");
+            } catch (e) {
+                document.getElementById('error').innerText = 'URLが正しくありません。';
+                console.error("Invalid URL:", e);
+                return null;
+            }
+        }
+
+        function getVideoDetails(videoId) {
+            return fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,statistics&key=${apiKey}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('APIリクエストに失敗しました: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.items.length === 0) {
+                        throw new Error('動画が見つかりませんでした。');
+                    }
+                    return data.items[0];
+                });
+        }
+
+        function compareVideos() {
+            const url1 = document.getElementById('youtubeLink1').value;
+            const url2 = document.getElementById('youtubeLink2').value;
+            const videoId1 = getVideoId(url1);
+            const videoId2 = getVideoId(url2);
+            const resultsDiv = document.getElementById('results');
+            const errorDiv = document.getElementById('error');
+            resultsDiv.innerHTML = "";
+            errorDiv.innerHTML = "";
+
+            if (!videoId1 || !videoId2) {
+                errorDiv.innerText = 'URLを確認してください。';
+                return;
+            }
+
+            resultsDiv.innerHTML = "動画を取得中...";
+
+            Promise.all([getVideoDetails(videoId1), getVideoDetails(videoId2)]).then(videos => {
+                const video1 = videos[0];
+                const video2 = videos[1];
+
+                const name1 = video1.snippet.title;
+                const name2 = video2.snippet.title;
+                const likes1 = video1.statistics.likeCount;
+                const likes2 = video2.statistics.likeCount;
+                const views1 = video1.statistics.viewCount;
+                const views2 = video2.statistics.viewCount;
+                const channelId1 = video1.snippet.channelId;
+                const channelId2 = video2.snippet.channelId;
+
+                // チャンネル登録者数を取得
+                Promise.all([
+                    getChannelDetails(channelId1),
+                    getChannelDetails(channelId2)
+                ]).then(channels => {
+                    const channelSub1 = channels[0];
+                    const channelSub2 = channels[1];
+
+                    const thumbnail1 = video1.snippet.thumbnails.medium.url;
+                    const thumbnail2 = video2.snippet.thumbnails.medium.url;
+
+                    resultsDiv.innerHTML = `
+                        <div class="video-info">
+                            <img src="${thumbnail1}" alt="Thumbnail 1" class="thumbnail">
+                            <div class="video-name">${name1}</div>
+                            <div class="stats">
+                                <img src="https://img.icons8.com/material-rounded/24/000000/play-button-circled.png"/> 再生回数: ${views1}
+                                <br>
+                                <img src="https://img.icons8.com/material-outlined/24/000000/thumb-up.png"/> 高評価: ${likes1}
+                                <br>
+                                <img src="https://img.icons8.com/material-outlined/24/000000/user-male.png"/> 登録者数: ${channelSub1}
+                            </div>
+                        </div>
+                        <div class="video-info">
+                            <img src="${thumbnail2}" alt="Thumbnail 2" class="thumbnail">
+                            <div class="video-name">${name2}</div>
+                            <div class="stats">
+                                <img src="https://img.icons8.com/material-rounded/24/000000/play-button-circled.png"/> 再生回数: ${views2}
+                                <br>
+                                <img src="https://img.icons8.com/material-outlined/24/000000/thumb-up.png"/> 高評価: ${likes2}
+                                <br>
+                                <img src="https://img.icons8.com/material-outlined/24/000000/user-male.png"/> 登録者数: ${channelSub2}
+                            </div>
+                        </div>
+                    `;
+                }).catch(channelError => {
+                    errorDiv.innerText = 'チャンネル情報の取得に失敗しました: ' + channelError.message;
+                    console.error("Error fetching channel details:", channelError);
+                });
+            }).catch(error => {
+                errorDiv.innerText = 'エラーが発生しました: ' + error.message;
+                console.error("Error fetching video details:", error);
+            });
+        }
+
+        // チャンネル登録者数を取得する関数
+        function getChannelDetails(channelId) {
+            return fetch(`https://www.googleapis.com/youtube/v3/channels?id=${channelId}&part=statistics&key=${apiKey}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('チャンネル情報の取得に失敗しました: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.items.length === 0) {
+                        throw new Error('チャンネルが見つかりませんでした。');
+                    }
+                    return data.items[0].statistics.subscriberCount;
+                });
+        }
+    </script>
+
+</body>
+</html>
