@@ -5,9 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube どっち</title>
     <style>
+        :root {
+            --background-color: white;
+            --text-color: black;
+            --font-size: 16px;
+            --video-title-size: 20px;
+            --stats-size: 18px;
+        }
+
+        [data-theme="dark"] {
+            --background-color: #333;
+            --text-color: white;
+        }
+
+        [data-theme="light"] {
+            --background-color: white;
+            --text-color: black;
+        }
+
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            background-color: var(--background-color);
+            color: var(--text-color);
             margin: 0;
             padding: 0;
             display: flex;
@@ -15,9 +34,12 @@
             align-items: center;
             height: 100vh;
             position: relative;
+            transition: background-color 0.5s, color 0.5s, font-size 0.5s;
+            font-size: var(--font-size);
         }
+
         .container {
-            background-color: white;
+            background-color: var(--background-color);
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
@@ -27,13 +49,12 @@
             position: relative;
             z-index: 1;
         }
-        h1 {
-            color: #333;
-        }
+
         .title {
             font-size: 50px;
             margin: 20px 0;
         }
+
         input[type="url"] {
             width: calc(100% - 20px);
             padding: 10px;
@@ -42,6 +63,7 @@
             border-radius: 5px;
             box-sizing: border-box;
         }
+
         .button {
             padding: 10px 20px;
             background-color: #5ecae6;
@@ -51,41 +73,73 @@
             cursor: pointer;
             margin-top: 10px;
         }
+
         .button:hover {
             background-color: #80cde0;
         }
+
         .results {
             margin-top: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
+
         .video-info {
             width: 45%;
             text-align: center;
         }
+
         .video-name {
             font-weight: bold;
-            font-size: 20px;
+            font-size: var(--video-title-size);
             margin-top: 10px;
         }
+
         .stats {
             margin-top: 10px;
-            font-size: 18px;
+            font-size: var(--stats-size);
         }
+
         .stats img {
             vertical-align: middle;
             margin-right: 10px;
         }
+
         .error {
             color: red;
             margin-top: 20px;
         }
+
         .thumbnail {
             width: 100%;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
+        .settings-panel {
+            display: none;
+            position: absolute;
+            top: 60px; /* ボタンよりも上に配置 */
+            right: 10px;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 2; /* ボタンの後ろに隠れないようにする */
+        }
+
+        .settings-panel label {
+            display: block;
+            margin: 5px 0;
+        }
+
+        .settings-panel select,
+        .settings-panel input[type="color"],
+        .settings-panel input[type="range"] {
+            width: 100%;
+        }
+
     </style>
 </head>
 <body>
@@ -99,6 +153,29 @@
         <div class="results" id="results"></div>
         <div class="error" id="error"></div>
     </div>
+
+    <div class="settings-panel" id="settingsPanel">
+        <h3>テーマ設定</h3>
+        <label for="themeMode">モード:</label>
+        <select id="themeMode" onchange="changeThemeMode()">
+            <option value="system">システム</option>
+            <option value="light">ライト</option>
+            <option value="dark">ダーク</option>
+            <option value="custom">カスタム</option>
+        </select>
+        
+        <div id="customColorSettings" style="display: none;">
+            <label for="customBgColor">背景色:</label>
+            <input type="color" id="customBgColor" onchange="updateCustomColors()">
+            <label for="customTextColor">文字色:</label>
+            <input type="color" id="customTextColor" onchange="updateCustomColors()">
+        </div>
+        
+        <label for="fontSize">文字サイズ:</label>
+        <input type="range" id="fontSize" min="12" max="24" value="16" oninput="updateFontSize(this.value)">
+    </div>
+
+    <button class="button" style="position: absolute; top: 10px; right: 10px;" onclick="toggleSettings()">⚙️ 設定</button>
 
     <script>
         const apiKey = 'AIzaSyD54-iZ57_DhizSVJ2omDLp37C0ivPyJRI'; // APIキー
@@ -220,6 +297,57 @@
                     }
                     return data.items[0].statistics.subscriberCount;
                 });
+        }
+
+        // テーマモード変更
+        function changeThemeMode() {
+            const mode = document.getElementById('themeMode').value;
+
+            // カスタムカラー設定解除
+            document.documentElement.style.removeProperty('--background-color');
+            document.documentElement.style.removeProperty('--text-color');
+
+            if (mode === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.getElementById('customColorSettings').style.display = 'none';
+            } else if (mode === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+                document.getElementById('customColorSettings').style.display = 'none';
+            } else if (mode === 'system') {
+                document.documentElement.style.removeProperty('--background-color');
+                document.documentElement.style.removeProperty('--text-color');
+
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                } else {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                }
+                document.getElementById('customColorSettings').style.display = 'none';
+            } else if (mode === 'custom') {
+                document.getElementById('customColorSettings').style.display = 'block';
+                updateCustomColors();
+            }
+        }
+
+        // カスタムカラーを反映する
+        function updateCustomColors() {
+            const customBgColor = document.getElementById('customBgColor').value;
+            const customTextColor = document.getElementById('customTextColor').value;
+            document.documentElement.style.setProperty('--background-color', customBgColor);
+            document.documentElement.style.setProperty('--text-color', customTextColor);
+        }
+
+        // 文字サイズを更新
+        function updateFontSize(size) {
+            document.documentElement.style.setProperty('--font-size', size + 'px');
+            document.documentElement.style.setProperty('--video-title-size', (size * 1.25) + 'px'); // 動画名のサイズ
+            document.documentElement.style.setProperty('--stats-size', (size * 1.125) + 'px'); // 統計情報のサイズ
+        }
+
+        // 設定パネルの表示切替
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         }
     </script>
 
